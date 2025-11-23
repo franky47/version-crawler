@@ -105,9 +105,14 @@ Sources array may be empty.
 
 If invalid → 400.
 
+Validation is done with ArkType schemas passed after the handler in Elysia:
+https://elysiajs.com/essential/validation.md
+
 ---
 
 ### **5.2 Step 2 — Determine Entry Commit**
+
+Using the GitHub REST API:
 
 1. **If `branch` is provided:**
    - Fetch commit SHA for that ref:
@@ -127,6 +132,8 @@ If invalid → 400.
 
 #### **3.1 Fetch Git Tree (recursive)**
 
+Using the GitHub REST API:
+
 ```
 GET /repos/:owner/:repo/git/trees/:sha?recursive=1
 ```
@@ -137,7 +144,7 @@ Scan the resulting paths for:
 - `package-lock.json`
 - `yarn.lock`
 - `pnpm-lock.yaml`
-- optionally `.yarn/…` indicators for Berry
+- `bun.lock`
 
 We do **not** download these files yet.
 
@@ -173,6 +180,7 @@ To support monorepos where lockfiles may encode ranges indirectly, we stream par
 - Yarn v2+ (`yarn.lock`)
 - PNPM (`pnpm-lock.yaml`)
 - npm (`package-lock.json`)
+- Bun (`bun.lock`) (text-based variant only, binary lockfile is out of scope)
 
 Parsing is done using the **streaming parsers** described in previous steps, with **ArkType** validation and **early termination** when `pkg` is found.
 
@@ -201,7 +209,7 @@ Examples accepted:
 - `^1.2.3`
 - `~4.0`
 - `5.0.1`
-- `workspace:*`
+- `workspace:*` (ignored: internal reference)
 - `link:../local` (ignored, not a semver — spec: exclude non-semver ranges)
 
 Only valid semver or semver ranges are returned.
@@ -237,9 +245,7 @@ type ApiResponse = {
 
 ### **400 Bad Request**
 
-- Missing `repo` or `pkg`
-- Invalid repo format
-- Invalid package name
+- Invalid owner, repo, package name formats
 
 ### **404 Not Found**
 
@@ -322,16 +328,9 @@ Each:
 
 ## **12. Observability**
 
-- Structured logs (JSON)
-- Duration logging per stage:
-
-  - metadata fetch
-  - tree fetch
-  - manifest scan
-  - lockfile streaming
-  - response assembly
-
-- Errors logged with stack trace
+- Use Elysia's o11y capabilities: https://elysiajs.com/patterns/opentelemetry.md
+- Use structured logs (JSON) via pino
+- Add debug-level log points before and after each step, with relevant context
 
 ---
 
@@ -347,7 +346,6 @@ To ensure reliability and maintainability, the architecture must support isolate
 
 ### **14.1 Unit Tests**
 
-- **Validators**: Test input validation logic (regex for repo/owner, package name validation) with various valid and invalid inputs.
 - **Parsers**: Test `LockfileStreamers` and `ManifestParsers` against sample file contents (strings/streams) without network calls. Verify they correctly extract versions and line numbers.
 - **VersionCollector**: Test normalization and deduplication logic.
 
@@ -356,11 +354,15 @@ To ensure reliability and maintainability, the architecture must support isolate
 - **GitHubClient**: Use **MSW (Mock Service Worker)** to intercept and mock GitHub API requests. Verify that the client handles rate limits, 404s, and successful responses correctly without hitting the real API.
 - **RepoScanner**: Mock the `GitHubClient` to test tree traversal and file identification logic without hitting the real GitHub API.
 
+Define MSW handlers per-test to test different failure cases (404, rate-limiting, network error).
+
 ### **14.3 End-to-End (E2E) Tests**
 
-- Spin up the Elysia server.
 - Use **MSW** to simulate GitHub responses for various scenarios (valid repo, missing package, rate limited, etc.).
+- Spin up the Elysia server.
 - Verify the full request-response cycle for the `/owner/repo/pkg` endpoint.
+
+Request can be injected in Elysia for complete flow testing: https://elysiajs.com/patterns/unit-test.md
 
 ### **14.4 Decoupling for Testability**
 
@@ -373,4 +375,4 @@ To ensure reliability and maintainability, the architecture must support isolate
 
 | Variable       | Description                                                  | Required |
 | -------------- | ------------------------------------------------------------ | -------- |
-| `GITHUB_TOKEN` | GitHub Personal Access Token used for API requests (Bearer). | Yes      |
+| `GITHUB_TOKEN` | GitHub Personal Access Token used for API requests (Bearer). | No       |
