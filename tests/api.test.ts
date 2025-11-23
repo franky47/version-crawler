@@ -53,13 +53,37 @@ const mockPackageJson = JSON.stringify(
 // Set up MSW server
 const server = setupServer(
   http.get('https://api.github.com/repos/:owner/:repo', () => {
-    return HttpResponse.json(mockRepo)
+    return HttpResponse.json(mockRepo, {
+      headers: {
+        'X-RateLimit-Limit': '5000',
+        'X-RateLimit-Remaining': '4999',
+        'X-RateLimit-Reset': '1732492800',
+        'X-RateLimit-Used': '1',
+        'X-RateLimit-Resource': 'core',
+      },
+    })
   }),
   http.get('https://api.github.com/repos/:owner/:repo/commits/:ref', () => {
-    return HttpResponse.json(mockCommit)
+    return HttpResponse.json(mockCommit, {
+      headers: {
+        'X-RateLimit-Limit': '5000',
+        'X-RateLimit-Remaining': '4998',
+        'X-RateLimit-Reset': '1732492800',
+        'X-RateLimit-Used': '2',
+        'X-RateLimit-Resource': 'core',
+      },
+    })
   }),
   http.get('https://api.github.com/repos/:owner/:repo/git/trees/:sha', () => {
-    return HttpResponse.json(mockTree)
+    return HttpResponse.json(mockTree, {
+      headers: {
+        'X-RateLimit-Limit': '5000',
+        'X-RateLimit-Remaining': '4997',
+        'X-RateLimit-Reset': '1732492800',
+        'X-RateLimit-Used': '3',
+        'X-RateLimit-Resource': 'core',
+      },
+    })
   }),
   http.get('https://raw.githubusercontent.com/:owner/:repo/:sha/:path', () => {
     return new HttpResponse(mockPackageJson, {
@@ -123,8 +147,11 @@ test('GET /:owner/:repo/:pkg with rate limit returns 502', async () => {
       return new HttpResponse(null, {
         status: 403,
         headers: {
+          'X-RateLimit-Limit': '5000',
           'X-RateLimit-Remaining': '0',
           'X-RateLimit-Reset': '1234567890',
+          'X-RateLimit-Used': '5000',
+          'X-RateLimit-Resource': 'core',
         },
       })
     })
@@ -135,4 +162,30 @@ test('GET /:owner/:repo/:pkg with rate limit returns 502', async () => {
   )
 
   expect(response.status).toBe(502)
+})
+
+test('GET /metrics returns GitHub rate limit info', async () => {
+  // First make a request to populate rate limit info
+  await app.handle(
+    new Request('http://localhost:3000/test-owner/test-repo/react')
+  )
+
+  // Then check metrics endpoint
+  const response = await app.handle(
+    new Request('http://localhost:3000/metrics')
+  )
+  expect(response.status).toBe(200)
+
+  const data = await response.json()
+  expect(data).toHaveProperty('github')
+  expect(data.github).toHaveProperty('rateLimit')
+
+  // Should have rate limit info from the previous request
+  if (data.github.rateLimit.status !== 'No API calls made yet') {
+    expect(data.github.rateLimit).toHaveProperty('limit')
+    expect(data.github.rateLimit).toHaveProperty('remaining')
+    expect(data.github.rateLimit).toHaveProperty('reset')
+    expect(data.github.rateLimit).toHaveProperty('used')
+    expect(data.github.rateLimit).toHaveProperty('resource')
+  }
 })

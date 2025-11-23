@@ -6,7 +6,8 @@ import { createTelemetryPlugin } from './telemetry'
 import type { ApiResponse } from './types'
 import { pathParamsSchema, queryParamsSchema } from './validation'
 
-const PORT = process.env.PORT || 3000
+// Shared GitHub client instance to track rate limits across requests
+const githubClient = new GitHubClient()
 
 const app = new Elysia()
   .use(createTelemetryPlugin())
@@ -60,6 +61,16 @@ const app = new Elysia()
     version: '1.0.0',
     usage: 'GET /:owner/:repo/:pkg?branch=<branch>',
   }))
+  .get('/metrics', () => {
+    const rateLimitInfo = githubClient.getLastRateLimitInfo()
+    return {
+      github: {
+        rateLimit: rateLimitInfo || {
+          status: 'No API calls made yet',
+        },
+      },
+    }
+  })
   .get(
     '/:owner/:repo/:pkg',
     async ({ params, query }) => {
@@ -68,7 +79,6 @@ const app = new Elysia()
 
       logger.info({ owner, repo, pkg, branch }, 'Processing request')
 
-      const githubClient = new GitHubClient()
       const scanner = new RepoScanner(githubClient)
 
       const sources = await scanner.scanRepository(owner, repo, pkg, branch)

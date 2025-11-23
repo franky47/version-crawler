@@ -1,3 +1,4 @@
+import { type } from 'arktype'
 import { logger } from './logger'
 import type {
   GitHubCommit,
@@ -17,13 +18,39 @@ export class GitHubApiError extends Error {
   }
 }
 
+// ArkType morph to parse string header values to numbers
+const parseIntMorph = type('string').pipe.try((s) => {
+  const parsed = parseInt(s, 10)
+  if (isNaN(parsed)) {
+    throw new Error(`Cannot parse "${s}" as integer`)
+  }
+  return parsed
+})
+
+// ArkType schema for GitHub rate limit headers
+// All fields are required as GitHub API always returns them
+const rateLimitHeaderSchema = type({
+  limit: ['string|null', '=>', parseIntMorph],
+  remaining: ['string|null', '=>', parseIntMorph],
+  reset: ['string|null', '=>', parseIntMorph],
+  used: ['string|null', '=>', parseIntMorph],
+  resource: 'string|null',
+})
+
+export type RateLimitInfo = typeof rateLimitHeaderSchema.infer
+
 export class GitHubClient implements IGitHubClient {
   private readonly baseUrl = 'https://api.github.com'
   private readonly rawBaseUrl = 'https://raw.githubusercontent.com'
   private readonly token: string | undefined
+  private lastRateLimitInfo: RateLimitInfo | null = null
 
   constructor(token?: string) {
     this.token = token || process.env.GITHUB_TOKEN
+  }
+
+  getLastRateLimitInfo(): RateLimitInfo | null {
+    return this.lastRateLimitInfo
   }
 
   private getHeaders(): HeadersInit {
@@ -40,26 +67,48 @@ export class GitHubClient implements IGitHubClient {
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
-    const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining')
-    const rateLimitReset = response.headers.get('X-RateLimit-Reset')
+    // Capture and validate rate limit headers for observability
+    const rawRateLimitData = {
+      limit: response.headers.get('X-RateLimit-Limit'),
+      remaining: response.headers.get('X-RateLimit-Remaining'),
+      reset: response.headers.get('X-RateLimit-Reset'),
+      used: response.headers.get('X-RateLimit-Used'),
+      resource: response.headers.get('X-RateLimit-Resource'),
+    }
 
-    logger.debug(
-      {
-        status: response.status,
-        rateLimitRemaining,
-        rateLimitReset,
-        url: response.url,
-      },
-      'GitHub API response'
-    )
+    // Validate with ArkType - GitHub API should always return these headers
+    const validated = rateLimitHeaderSchema(rawRateLimitData)
+
+    if (validated instanceof type.errors) {
+      logger.warn(
+        {
+          status: response.status,
+          rateLimitValidationErrors: validated.summary,
+          rawHeaders: rawRateLimitData,
+          url: response.url,
+        },
+        'Failed to validate rate limit headers from GitHub API'
+      )
+      this.lastRateLimitInfo = null
+    } else {
+      this.lastRateLimitInfo = validated
+      logger.debug(
+        {
+          status: response.status,
+          rateLimit: validated,
+          url: response.url,
+        },
+        'GitHub API response'
+      )
+    }
 
     if (response.status === 404) {
       throw new GitHubApiError(`Resource not found: ${response.url}`, 404)
     }
 
-    if (response.status === 403 && rateLimitRemaining === '0') {
-      const resetTime = rateLimitReset
-        ? new Date(parseInt(rateLimitReset) * 1000).toISOString()
+    if (response.status === 403 && this.lastRateLimitInfo?.remaining === 0) {
+      const resetTime = this.lastRateLimitInfo.reset
+        ? new Date(this.lastRateLimitInfo.reset * 1000).toISOString()
         : 'unknown'
       throw new GitHubApiError(
         `GitHub API rate limit exceeded. Resets at ${resetTime}`,

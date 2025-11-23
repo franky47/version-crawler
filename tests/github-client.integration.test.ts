@@ -73,13 +73,37 @@ const mockPackageJson = JSON.stringify(
 // Set up MSW server
 const server = setupServer(
   http.get('https://api.github.com/repos/facebook/react', () => {
-    return HttpResponse.json(mockRepo)
+    return HttpResponse.json(mockRepo, {
+      headers: {
+        'X-RateLimit-Limit': '5000',
+        'X-RateLimit-Remaining': '4999',
+        'X-RateLimit-Reset': '1732492800',
+        'X-RateLimit-Used': '1',
+        'X-RateLimit-Resource': 'core',
+      },
+    })
   }),
   http.get('https://api.github.com/repos/facebook/react/commits/main', () => {
-    return HttpResponse.json(mockCommit)
+    return HttpResponse.json(mockCommit, {
+      headers: {
+        'X-RateLimit-Limit': '5000',
+        'X-RateLimit-Remaining': '4998',
+        'X-RateLimit-Reset': '1732492800',
+        'X-RateLimit-Used': '2',
+        'X-RateLimit-Resource': 'core',
+      },
+    })
   }),
   http.get('https://api.github.com/repos/facebook/react/git/trees/:sha', () => {
-    return HttpResponse.json(mockTree)
+    return HttpResponse.json(mockTree, {
+      headers: {
+        'X-RateLimit-Limit': '5000',
+        'X-RateLimit-Remaining': '4997',
+        'X-RateLimit-Reset': '1732492800',
+        'X-RateLimit-Used': '3',
+        'X-RateLimit-Resource': 'core',
+      },
+    })
   }),
   http.get(
     'https://raw.githubusercontent.com/facebook/react/:sha/package.json',
@@ -92,7 +116,16 @@ const server = setupServer(
   http.get(
     'https://api.github.com/repos/facebook/this-repo-definitely-does-not-exist-12345',
     () => {
-      return new HttpResponse(null, { status: 404 })
+      return new HttpResponse(null, {
+        status: 404,
+        headers: {
+          'X-RateLimit-Limit': '60',
+          'X-RateLimit-Remaining': '59',
+          'X-RateLimit-Reset': '1732492800',
+          'X-RateLimit-Used': '1',
+          'X-RateLimit-Resource': 'core',
+        },
+      })
     }
   )
 )
@@ -155,5 +188,38 @@ describe('GitHub Client Integration', () => {
       expect((error as GitHubApiError).statusCode).toBe(404)
       expect((error as GitHubApiError).message).toContain('Resource not found')
     }
+  })
+
+  it('should track rate limit information', async () => {
+    await client.getDefaultBranch('facebook', 'react')
+
+    const rateLimitInfo = client.getLastRateLimitInfo()
+    expect(rateLimitInfo).toBeTruthy()
+    expect(rateLimitInfo?.limit).toBe(5000)
+    expect(rateLimitInfo?.remaining).toBe(4999)
+    expect(rateLimitInfo?.reset).toBe(1732492800)
+    expect(rateLimitInfo?.used).toBe(1)
+    expect(rateLimitInfo?.resource).toBe('core')
+  })
+
+  it('should update rate limit info on each request', async () => {
+    await client.getDefaultBranch('facebook', 'react')
+    let rateLimitInfo = client.getLastRateLimitInfo()
+    expect(rateLimitInfo?.remaining).toBe(4999)
+    expect(rateLimitInfo?.used).toBe(1)
+
+    await client.getCommitSha('facebook', 'react', 'main')
+    rateLimitInfo = client.getLastRateLimitInfo()
+    expect(rateLimitInfo?.remaining).toBe(4998)
+    expect(rateLimitInfo?.used).toBe(2)
+
+    await client.getTree(
+      'facebook',
+      'react',
+      'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0'
+    )
+    rateLimitInfo = client.getLastRateLimitInfo()
+    expect(rateLimitInfo?.remaining).toBe(4997)
+    expect(rateLimitInfo?.used).toBe(3)
   })
 })
