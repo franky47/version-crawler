@@ -54,7 +54,7 @@ export class GitHubClient implements IGitHubClient {
     )
 
     if (response.status === 404) {
-      throw new GitHubApiError('Resource not found', 404)
+      throw new GitHubApiError(`Resource not found: ${response.url}`, 404)
     }
 
     if (response.status === 403 && rateLimitRemaining === '0') {

@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000
 
 const app = new Elysia()
   .use(createTelemetryPlugin())
-  .onError(({ code, error, set }) => {
+  .onError(({ code, error, set, request }) => {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const errorStack = error instanceof Error ? error.stack : undefined
 
@@ -37,9 +37,12 @@ const app = new Elysia()
     }
 
     if (code === 'NOT_FOUND') {
+      const requestPath = new URL(request.url).pathname
+      logger.error({ path: requestPath }, 'Resource not found')
       set.status = 404
       return {
         error: 'Not found',
+        path: requestPath,
         statusCode: 404,
       }
     }
