@@ -1,13 +1,14 @@
 import { Elysia } from 'elysia'
 import { GitHubApiError, GitHubClient } from './github-client'
 import { logger } from './logger'
-import { RepoScanner } from './repo-scanner'
+import { ManifestParser } from './manifest-parser'
+import { scanRepository } from './repo-scanner'
 import { createTelemetryPlugin } from './telemetry'
 import type { ApiResponse } from './types'
 import { pathParamsSchema, queryParamsSchema } from './validation'
 
-// Shared GitHub client instance to track rate limits across requests
 const githubClient = new GitHubClient()
+const manifestParser = new ManifestParser()
 
 const app = new Elysia()
   .use(createTelemetryPlugin())
@@ -79,9 +80,14 @@ const app = new Elysia()
 
       logger.info({ owner, repo, pkg, branch }, 'Processing request')
 
-      const scanner = new RepoScanner(githubClient)
-
-      const sources = await scanner.scanRepository(owner, repo, pkg, branch)
+      const sources = await scanRepository({
+        owner,
+        repo,
+        branch,
+        packageName: pkg,
+        githubClient,
+        manifestParser,
+      })
 
       const response: ApiResponse = {
         repo: `${owner}/${repo}`,
