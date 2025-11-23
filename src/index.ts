@@ -88,15 +88,5 @@ const app = new Elysia()
       query: queryParamsSchema,
     }
   )
-  .listen(PORT)
-
-logger.info(
-  { port: app.server?.port, hostname: app.server?.hostname },
-  'Server started'
-)
-
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-)
 
 export default app
