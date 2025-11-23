@@ -2,14 +2,25 @@
   "name": "elysia-bun",
   "version": "1.0.50",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "test": "bun test",
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "elysia": "latest"
+    "@elysiajs/opentelemetry": "^1.4.8",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.208.0",
+    "@opentelemetry/sdk-trace-node": "^2.2.0",
+    "arktype": "^2.1.27",
+    "elysia": "latest",
+    "js-yaml": "^4.1.1",
+    "pino": "^10.1.0",
+    "pino-pretty": "^13.1.2",
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "@types/js-yaml": "^4.0.9",
+    "bun-types": "latest",
+    "msw": "^2.12.3"
   },
   "module": "src/index.js"
 }
