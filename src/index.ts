@@ -5,7 +5,7 @@ import { ManifestParser } from './manifest-parser'
 import { scanRepository } from './repo-scanner'
 import { createTelemetryPlugin } from './telemetry'
 import type { ApiResponse } from './types'
-import { pathParamsSchema, queryParamsSchema } from './validation'
+import { pathParamsSchema } from './validation'
 
 const githubClient = new GitHubClient()
 const manifestParser = new ManifestParser()
@@ -60,7 +60,7 @@ const app = new Elysia()
   .get('/', () => ({
     service: 'Repository Dependency Version Discovery API',
     version: '1.0.0',
-    usage: 'GET /:owner/:repo/:pkg?branch=<branch>',
+    usage: 'GET /:owner/:repo/:pkg',
   }))
   .get('/metrics', () => {
     const rateLimitInfo = githubClient.getLastRateLimitInfo()
@@ -74,16 +74,14 @@ const app = new Elysia()
   })
   .get(
     '/:owner/:repo/:pkg',
-    async ({ params, query }) => {
+    async ({ params }) => {
       const { owner, repo, pkg } = params
-      const { branch } = query
 
-      logger.info({ owner, repo, pkg, branch }, 'Processing request')
+      logger.info({ owner, repo, pkg }, 'Processing request')
 
       const sources = await scanRepository({
         owner,
         repo,
-        branch,
         packageName: pkg,
         githubClient,
         manifestParser,
@@ -104,7 +102,6 @@ const app = new Elysia()
     },
     {
       params: pathParamsSchema,
-      query: queryParamsSchema,
     }
   )
 

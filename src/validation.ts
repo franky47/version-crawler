@@ -35,9 +35,6 @@ export const packageSchemaArkType = type('string>=1').narrow(
   (s) => s.length <= 214
 )
 
-// Optional branch/tag parameter
-export const branchSchemaArkType = type('string>=1|undefined')
-
 // Elysia validation schemas (for runtime validation in routes)
 // GitHub username rules: alphanumeric + hyphens
 const ownerSchema = t.String({
@@ -61,20 +58,8 @@ const packageSchema = t.String({
   error: 'Invalid package name.',
 })
 
-// Optional branch/tag parameter
-const branchSchema = t.Optional(
-  t.String({
-    minLength: 1,
-    error: 'Branch name cannot be empty.',
-  })
-)
-
 export const pathParamsSchema = t.Object({
   owner: ownerSchema,
   repo: repoSchema,
   pkg: packageSchema,
-})
-
-export const queryParamsSchema = t.Object({
-  branch: branchSchema,
 })

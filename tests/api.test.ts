@@ -4,25 +4,6 @@ import { setupServer } from 'msw/node'
 import app from '../src/index'
 
 // Mock GitHub API responses
-const mockRepo = {
-  name: 'test-repo',
-  full_name: 'test-owner/test-repo',
-  default_branch: 'main',
-  owner: {
-    login: 'test-owner',
-  },
-}
-
-const mockCommit = {
-  sha: 'abc123',
-  node_id: 'test',
-  commit: {
-    author: { name: 'Test', email: 'test@example.com', date: '2023-01-01' },
-    committer: { name: 'Test', email: 'test@example.com', date: '2023-01-01' },
-    message: 'Test commit',
-  },
-}
-
 const mockTree = {
   sha: 'abc123',
   url: 'https://api.github.com/repos/test-owner/test-repo/git/trees/abc123',
@@ -52,39 +33,21 @@ const mockPackageJson = JSON.stringify(
 
 // Set up MSW server
 const server = setupServer(
-  http.get('https://api.github.com/repos/:owner/:repo', () => {
-    return HttpResponse.json(mockRepo, {
-      headers: {
-        'X-RateLimit-Limit': '5000',
-        'X-RateLimit-Remaining': '4999',
-        'X-RateLimit-Reset': '1732492800',
-        'X-RateLimit-Used': '1',
-        'X-RateLimit-Resource': 'core',
-      },
-    })
-  }),
-  http.get('https://api.github.com/repos/:owner/:repo/commits/:ref', () => {
-    return HttpResponse.json(mockCommit, {
-      headers: {
-        'X-RateLimit-Limit': '5000',
-        'X-RateLimit-Remaining': '4998',
-        'X-RateLimit-Reset': '1732492800',
-        'X-RateLimit-Used': '2',
-        'X-RateLimit-Resource': 'core',
-      },
-    })
-  }),
-  http.get('https://api.github.com/repos/:owner/:repo/git/trees/:sha', () => {
-    return HttpResponse.json(mockTree, {
-      headers: {
-        'X-RateLimit-Limit': '5000',
-        'X-RateLimit-Remaining': '4997',
-        'X-RateLimit-Reset': '1732492800',
-        'X-RateLimit-Used': '3',
-        'X-RateLimit-Resource': 'core',
-      },
-    })
-  }),
+  http.get(
+    'https://api.github.com/repos/:owner/:repo/git/trees/:sha',
+    ({ params }) => {
+      // Support both HEAD and specific SHA for backward compatibility
+      return HttpResponse.json(mockTree, {
+        headers: {
+          'X-RateLimit-Limit': '5000',
+          'X-RateLimit-Remaining': '4999',
+          'X-RateLimit-Reset': '1732492800',
+          'X-RateLimit-Used': '1',
+          'X-RateLimit-Resource': 'core',
+        },
+      })
+    }
+  ),
   http.get('https://raw.githubusercontent.com/:owner/:repo/:sha/:path', () => {
     return new HttpResponse(mockPackageJson, {
       headers: { 'Content-Type': 'application/json' },
@@ -129,7 +92,7 @@ test('GET /:owner/:repo/:pkg with invalid owner returns 400', async () => {
 
 test('GET /:owner/:repo/:pkg with 404 from GitHub returns 404', async () => {
   server.use(
-    http.get('https://api.github.com/repos/:owner/:repo', () => {
+    http.get('https://api.github.com/repos/:owner/:repo/git/trees/:sha', () => {
       return new HttpResponse(null, { status: 404 })
     })
   )
@@ -143,7 +106,7 @@ test('GET /:owner/:repo/:pkg with 404 from GitHub returns 404', async () => {
 
 test('GET /:owner/:repo/:pkg with rate limit returns 502', async () => {
   server.use(
-    http.get('https://api.github.com/repos/:owner/:repo', () => {
+    http.get('https://api.github.com/repos/:owner/:repo/git/trees/:sha', () => {
       return new HttpResponse(null, {
         status: 403,
         headers: {
