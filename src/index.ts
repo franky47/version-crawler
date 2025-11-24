@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia'
+import packageJson from '../package.json' with { type: 'json' }
 import { GitHubApiError, GitHubClient } from './github-client'
 import { logger } from './logger'
 import { ManifestParser } from './manifest-parser'
@@ -59,7 +60,7 @@ const app = new Elysia()
   })
   .get('/', () => ({
     service: 'Repository Dependency Version Discovery API',
-    version: '1.0.0',
+    version: packageJson.version,
     usage: 'GET /:owner/:repo/:pkg',
   }))
   .get('/metrics', () => {
