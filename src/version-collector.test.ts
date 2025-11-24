@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { VersionCollector } from '../src/version-collector'
+import { VersionCollector } from './version-collector'
 
 describe('VersionCollector', () => {
   test('should add valid semver versions', () => {

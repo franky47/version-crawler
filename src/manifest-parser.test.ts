@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ManifestParser } from '../src/manifest-parser'
+import { ManifestParser } from './manifest-parser'
 
 describe('ManifestParser', () => {
   const parser = new ManifestParser()

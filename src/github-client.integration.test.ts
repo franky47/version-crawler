@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'bun:test'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { GitHubApiError, GitHubClient } from '../src/github-client'
+import { GitHubApiError, GitHubClient } from './github-client'
 
 // Mock data
 const mockRepo = {
