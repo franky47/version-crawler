@@ -7,7 +7,6 @@ type ScanRepositoryParams = {
   owner: string
   repo: string
   packageName: string
-  branch?: string
   githubClient: IGitHubClient
   manifestParser: ManifestParser
 }
@@ -16,28 +15,13 @@ export async function scanRepository({
   owner,
   repo,
   packageName,
-  branch,
   githubClient,
   manifestParser,
 }: ScanRepositoryParams): Promise<DependencySource[]> {
-  logger.info({ owner, repo, packageName, branch }, 'Starting repository scan')
+  logger.info({ owner, repo, packageName }, 'Starting repository scan')
 
-  // Step 1: Determine the commit SHA to use
-  let commitSha: string
-  let actualBranch: string
-
-  if (branch) {
-    commitSha = await githubClient.getCommitSha(owner, repo, branch)
-    actualBranch = branch
-  } else {
-    actualBranch = await githubClient.getDefaultBranch(owner, repo)
-    commitSha = await githubClient.getCommitSha(owner, repo, actualBranch)
-  }
-
-  logger.debug({ commitSha, branch: actualBranch }, 'Resolved commit SHA')
-
-  // Step 2: Fetch the git tree recursively
-  const tree = await githubClient.getTree(owner, repo, commitSha)
+  // Step 1: Fetch the git tree recursively from HEAD (default branch)
+  const tree = await githubClient.getTree(owner, repo, 'HEAD')
 
   if (tree.truncated) {
     logger.warn('Git tree was truncated - some files may be missed')
@@ -73,7 +57,7 @@ export async function scanRepository({
       const response = await githubClient.getRawFileContent(
         owner,
         repo,
-        commitSha,
+        'HEAD',
         filePath
       )
       const content = await response.text()
@@ -83,7 +67,7 @@ export async function scanRepository({
         packageName,
         filePath,
         repoUrl,
-        actualBranch
+        'HEAD'
       )
 
       sources.push(...manifestSources)
@@ -98,7 +82,7 @@ export async function scanRepository({
       const response = await githubClient.getRawFileContent(
         owner,
         repo,
-        commitSha,
+        'HEAD',
         filePath
       )
 
@@ -107,7 +91,7 @@ export async function scanRepository({
         filePath,
         packageName,
         repoUrl,
-        actualBranch
+        'HEAD'
       )
 
       sources.push(...lockfileSources)
