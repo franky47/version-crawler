@@ -3,6 +3,7 @@
   "version": "1.0.50",
   "scripts": {
     "test": "bun test",
+    "test:types": "tsc --noEmit",
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts"
   },
@@ -20,7 +21,8 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "bun-types": "latest",
-    "msw": "^2.12.3"
+    "msw": "^2.12.3",
+    "typescript": "^5.9.3"
   },
   "module": "src/index.js"
 }

@@ -6,6 +6,7 @@ import type {
   GitHubTree,
   IGitHubClient,
 } from './types'
+import { rateLimitHeaderSchema, type RateLimitInfo } from './validation'
 
 export class GitHubApiError extends Error {
   constructor(
@@ -17,27 +18,6 @@ export class GitHubApiError extends Error {
     this.name = 'GitHubApiError'
   }
 }
-
-// ArkType morph to parse string header values to numbers
-const parseIntMorph = type('string').pipe.try((s) => {
-  const parsed = parseInt(s, 10)
-  if (isNaN(parsed)) {
-    throw new Error(`Cannot parse "${s}" as integer`)
-  }
-  return parsed
-})
-
-// ArkType schema for GitHub rate limit headers
-// All fields are required as GitHub API always returns them
-const rateLimitHeaderSchema = type({
-  limit: ['string|null', '=>', parseIntMorph],
-  remaining: ['string|null', '=>', parseIntMorph],
-  reset: ['string|null', '=>', parseIntMorph],
-  used: ['string|null', '=>', parseIntMorph],
-  resource: 'string|null',
-})
-
-export type RateLimitInfo = typeof rateLimitHeaderSchema.infer
 
 export class GitHubClient implements IGitHubClient {
   private readonly baseUrl = 'https://api.github.com'
