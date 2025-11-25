@@ -1,13 +1,16 @@
-# Elysia with Bun runtime
+# version crawler
 
-## Getting Started
-To get started with this template, simply paste this command into your terminal:
-```bash
-bun create elysia ./elysia-example
-```
+Find what version of your package is used in a given repository.
+
+## Demo
+
+- [version-crawler.47ng.com](https://version-crawler.47ng.com)
+- [TheOrcDev/8bitcn-ui/nuqs](https://version-crawler.47ng.com/TheOrcDev/8bitcn-ui/nuqs)
 
 ## Development
+
 To start the development server run:
+
 ```bash
 bun run dev
 ```

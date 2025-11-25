@@ -66,6 +66,9 @@ test('GET / returns service info', async () => {
   const data = await response.json()
   expect(data).toHaveProperty('service')
   expect(data).toHaveProperty('version')
+  expect(data).toHaveProperty('examples')
+  expect(Array.isArray(data.examples)).toBe(true)
+  expect(data.examples.length).toBe(3)
 })
 
 test('GET /:owner/:repo/:pkg returns dependency information', async () => {

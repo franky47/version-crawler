@@ -1,6 +1,8 @@
 {
   "name": "version-crawler",
   "version": "0.0.0",
+  "description": "Find what version of your package is used in a given repository.",
+  "homepage": "https://version-crawler.47ng.com",
   "type": "module",
   "private": true,
   "packageManager": "bun@1.3.3",
