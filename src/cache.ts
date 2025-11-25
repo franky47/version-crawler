@@ -9,6 +9,9 @@ export class LRUCache<K, V> {
   private readonly maxSize: number
 
   constructor(maxSize: number) {
+    if (maxSize < 1) {
+      throw new Error('Cache maxSize must be at least 1')
+    }
     this.cache = new Map()
     this.maxSize = maxSize
   }
@@ -85,7 +88,8 @@ export const responseCache = new LRUCache<string, ApiResponse>(1000)
 
 /**
  * Generate a cache key for the crawling endpoint.
+ * Uses null byte as separator since it cannot appear in URL path parameters.
  */
 export function generateCacheKey(owner: string, repo: string, pkg: string): string {
-  return `${owner}/${repo}/${pkg}`
+  return `${owner}\0${repo}\0${pkg}`
 }

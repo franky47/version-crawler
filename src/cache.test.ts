@@ -8,6 +8,11 @@ describe('LRUCache', () => {
     cache = new LRUCache<string, number>(3)
   })
 
+  test('should throw error for invalid maxSize', () => {
+    expect(() => new LRUCache(0)).toThrow('Cache maxSize must be at least 1')
+    expect(() => new LRUCache(-1)).toThrow('Cache maxSize must be at least 1')
+  })
+
   test('should store and retrieve values', () => {
     cache.set('a', 1)
     expect(cache.get('a')).toBe(1)
@@ -98,10 +103,10 @@ describe('LRUCache', () => {
 
 describe('generateCacheKey', () => {
   test('should generate correct cache key', () => {
-    expect(generateCacheKey('owner', 'repo', 'package')).toBe('owner/repo/package')
+    expect(generateCacheKey('owner', 'repo', 'package')).toBe('owner\0repo\0package')
   })
 
   test('should handle scoped packages', () => {
-    expect(generateCacheKey('owner', 'repo', '@scope/package')).toBe('owner/repo/@scope/package')
+    expect(generateCacheKey('owner', 'repo', '@scope/package')).toBe('owner\0repo\0@scope/package')
   })
 })
