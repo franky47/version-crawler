@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach } from 'bun:test'
+import { describe, expect, test, beforeEach, mock } from 'bun:test'
 import { LRUCache, generateCacheKey } from './cache'
 
 describe('LRUCache', () => {
@@ -98,6 +98,71 @@ describe('LRUCache', () => {
     expect(smallCache.size).toBe(1)
     expect(smallCache.get('a')).toBeUndefined()
     expect(smallCache.get('b')).toBe(2)
+  })
+
+  test('should expire entries after max-age', () => {
+    // Create cache with 100ms max-age for testing
+    const ttlCache = new LRUCache<string, number>(3, 100)
+    const originalNow = Date.now
+
+    try {
+      let currentTime = originalNow()
+      Date.now = () => currentTime
+
+      ttlCache.set('a', 1)
+      expect(ttlCache.get('a')).toBe(1)
+
+      // Advance time past expiration (101ms)
+      currentTime += 101
+      expect(ttlCache.get('a')).toBeUndefined()
+    } finally {
+      // Restore Date.now
+      Date.now = originalNow
+    }
+  })
+
+  test('should return false for has() on expired entries', () => {
+    const ttlCache = new LRUCache<string, number>(3, 100)
+    const originalNow = Date.now
+
+    try {
+      let currentTime = originalNow()
+      Date.now = () => currentTime
+
+      ttlCache.set('a', 1)
+      expect(ttlCache.has('a')).toBe(true)
+
+      // Advance time past expiration
+      currentTime += 101
+      expect(ttlCache.has('a')).toBe(false)
+    } finally {
+      // Restore Date.now
+      Date.now = originalNow
+    }
+  })
+
+  test('should use default max-age of 1 hour', () => {
+    const defaultCache = new LRUCache<string, number>(3)
+    const originalNow = Date.now
+
+    try {
+      let currentTime = originalNow()
+      Date.now = () => currentTime
+
+      defaultCache.set('a', 1)
+      expect(defaultCache.get('a')).toBe(1)
+
+      // Advance time just under 1 hour (59 minutes)
+      currentTime += 59 * 60 * 1000
+      expect(defaultCache.get('a')).toBe(1)
+
+      // Advance time past 1 hour total (2 more minutes)
+      currentTime += 2 * 60 * 1000
+      expect(defaultCache.get('a')).toBeUndefined()
+    } finally {
+      // Restore Date.now
+      Date.now = originalNow
+    }
   })
 })
 

@@ -1,36 +1,54 @@
 import type { ApiResponse } from './types'
 
+type CacheEntry<V> = {
+  value: V
+  expiresAt: number
+}
+
+// Default max-age of 1 hour in milliseconds
+const DEFAULT_MAX_AGE_MS = 60 * 60 * 1000
+
 /**
- * A simple in-memory LRU (Least Recently Used) cache.
+ * A simple in-memory LRU (Least Recently Used) cache with TTL support.
  * Uses a Map to maintain insertion order, with most recently used items at the end.
+ * Entries expire after the configured max-age (default: 1 hour).
  */
 export class LRUCache<K, V> {
-  private cache: Map<K, V>
+  private cache: Map<K, CacheEntry<V>>
   private readonly maxSize: number
+  private readonly maxAgeMs: number
 
-  constructor(maxSize: number) {
+  constructor(maxSize: number, maxAgeMs: number = DEFAULT_MAX_AGE_MS) {
     if (maxSize < 1) {
       throw new Error('Cache maxSize must be at least 1')
     }
     this.cache = new Map()
     this.maxSize = maxSize
+    this.maxAgeMs = maxAgeMs
   }
 
   /**
    * Get a value from the cache.
-   * If found, moves the item to the end (most recently used).
+   * If found and not expired, moves the item to the end (most recently used).
+   * Expired entries are automatically removed.
    */
   get(key: K): V | undefined {
-    if (!this.cache.has(key)) {
+    const entry = this.cache.get(key)
+    if (!entry) {
+      return undefined
+    }
+
+    // Check if entry has expired
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key)
       return undefined
     }
 
     // Move to end (most recently used)
-    const value = this.cache.get(key)!
     this.cache.delete(key)
-    this.cache.set(key, value)
+    this.cache.set(key, entry)
 
-    return value
+    return entry.value
   }
 
   /**
@@ -50,14 +68,25 @@ export class LRUCache<K, V> {
       }
     }
 
-    this.cache.set(key, value)
+    this.cache.set(key, {
+      value,
+      expiresAt: Date.now() + this.maxAgeMs,
+    })
   }
 
   /**
-   * Check if a key exists in the cache.
+   * Check if a key exists in the cache and is not expired.
    */
   has(key: K): boolean {
-    return this.cache.has(key)
+    const entry = this.cache.get(key)
+    if (!entry) {
+      return false
+    }
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key)
+      return false
+    }
+    return true
   }
 
   /**
