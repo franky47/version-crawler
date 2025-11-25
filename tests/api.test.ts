@@ -152,3 +152,15 @@ test('GET /metrics returns GitHub rate limit info', async () => {
     expect(data.github.rateLimit).toHaveProperty('resource')
   }
 })
+
+test('GET /favicon.ico returns SVG with robot emoji', async () => {
+  const response = await app.handle(
+    new Request('http://localhost:3000/favicon.ico')
+  )
+  expect(response.status).toBe(200)
+  expect(response.headers.get('Content-Type')).toBe('image/svg+xml')
+
+  const svg = await response.text()
+  expect(svg).toContain('<svg')
+  expect(svg).toContain('🤖')
+})

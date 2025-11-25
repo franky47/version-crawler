@@ -11,6 +11,8 @@ import { pathParamsSchema } from './validation'
 const githubClient = new GitHubClient()
 const manifestParser = new ManifestParser()
 
+const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🤖</text></svg>`
+
 const app = new Elysia()
   .use(createTelemetryPlugin())
   .onError(({ code, error, set, request }) => {
@@ -72,6 +74,10 @@ const app = new Elysia()
         },
       },
     }
+  })
+  .get('/favicon.ico', ({ set }) => {
+    set.headers['Content-Type'] = 'image/svg+xml'
+    return FAVICON_SVG
   })
   .get(
     '/:owner/:repo/:pkg',
