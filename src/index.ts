@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia'
 import packageJson from '../package.json' with { type: 'json' }
+import { generateCacheKey, responseCache } from './cache'
 import { GitHubApiError, GitHubClient } from './github-client'
 import { logger } from './logger'
 import { ManifestParser } from './manifest-parser'
@@ -81,10 +82,22 @@ const app = new Elysia()
   })
   .get(
     '/:owner/:repo/:pkg',
-    async ({ params }) => {
+    async ({ params, set }) => {
       const { owner, repo, pkg } = params
 
       logger.info({ owner, repo, pkg }, 'Processing request')
+
+      // Check cache first
+      const cacheKey = generateCacheKey(owner, repo, pkg)
+      const cachedResponse = responseCache.get(cacheKey)
+      if (cachedResponse) {
+        logger.info({ owner, repo, pkg }, 'Cache hit')
+        set.headers['X-Cache'] = 'HIT'
+        return cachedResponse
+      }
+
+      logger.info({ owner, repo, pkg }, 'Cache miss')
+      set.headers['X-Cache'] = 'MISS'
 
       const sources = await scanRepository({
         owner,
@@ -99,6 +112,9 @@ const app = new Elysia()
         pkg,
         sources,
       }
+
+      // Store in cache
+      responseCache.set(cacheKey, response)
 
       logger.info(
         { owner, repo, pkg, sourceCount: sources.length },

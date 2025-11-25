@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, expect, test } from 'bun:test'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import app from '../src/index'
+import { responseCache } from '../src/cache'
 
 // Mock GitHub API responses
 const mockTree = {
@@ -56,7 +57,10 @@ const server = setupServer(
 )
 
 beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
+afterEach(() => {
+  server.resetHandlers()
+  responseCache.clear()
+})
 afterAll(() => server.close())
 
 test('GET / returns service info', async () => {
@@ -163,4 +167,48 @@ test('GET /favicon.ico returns SVG with robot emoji', async () => {
   const svg = await response.text()
   expect(svg).toContain('<svg')
   expect(svg).toContain('🤖')
+})
+
+test('GET /:owner/:repo/:pkg returns cached response on second request', async () => {
+  let requestCount = 0
+  server.use(
+    http.get(
+      'https://api.github.com/repos/:owner/:repo/git/trees/:sha',
+      () => {
+        requestCount++
+        return HttpResponse.json(mockTree, {
+          headers: {
+            'X-RateLimit-Limit': '5000',
+            'X-RateLimit-Remaining': '4999',
+            'X-RateLimit-Reset': '1732492800',
+            'X-RateLimit-Used': '1',
+            'X-RateLimit-Resource': 'core',
+          },
+        })
+      }
+    )
+  )
+
+  // First request - should hit GitHub API
+  const response1 = await app.handle(
+    new Request('http://localhost:3000/cache-owner/cache-repo/lodash')
+  )
+  expect(response1.status).toBe(200)
+  expect(response1.headers.get('X-Cache')).toBe('MISS')
+  const data1 = await response1.json()
+  expect(requestCount).toBe(1)
+
+  // Second request - should return cached response
+  const response2 = await app.handle(
+    new Request('http://localhost:3000/cache-owner/cache-repo/lodash')
+  )
+  expect(response2.status).toBe(200)
+  expect(response2.headers.get('X-Cache')).toBe('HIT')
+  const data2 = await response2.json()
+  
+  // Should still be 1 request since second was cached
+  expect(requestCount).toBe(1)
+  
+  // Response data should be identical
+  expect(data1).toEqual(data2)
 })
