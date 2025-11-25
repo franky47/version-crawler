@@ -82,7 +82,7 @@ const app = new Elysia()
   })
   .get(
     '/:owner/:repo/:pkg',
-    async ({ params }) => {
+    async ({ params, set }) => {
       const { owner, repo, pkg } = params
 
       logger.info({ owner, repo, pkg }, 'Processing request')
@@ -92,10 +92,12 @@ const app = new Elysia()
       const cachedResponse = responseCache.get(cacheKey)
       if (cachedResponse) {
         logger.info({ owner, repo, pkg }, 'Cache hit')
+        set.headers['X-Cache'] = 'HIT'
         return cachedResponse
       }
 
       logger.info({ owner, repo, pkg }, 'Cache miss')
+      set.headers['X-Cache'] = 'MISS'
 
       const sources = await scanRepository({
         owner,

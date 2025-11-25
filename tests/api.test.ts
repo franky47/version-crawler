@@ -194,6 +194,7 @@ test('GET /:owner/:repo/:pkg returns cached response on second request', async (
     new Request('http://localhost:3000/cache-owner/cache-repo/lodash')
   )
   expect(response1.status).toBe(200)
+  expect(response1.headers.get('X-Cache')).toBe('MISS')
   const data1 = await response1.json()
   expect(requestCount).toBe(1)
 
@@ -202,6 +203,7 @@ test('GET /:owner/:repo/:pkg returns cached response on second request', async (
     new Request('http://localhost:3000/cache-owner/cache-repo/lodash')
   )
   expect(response2.status).toBe(200)
+  expect(response2.headers.get('X-Cache')).toBe('HIT')
   const data2 = await response2.json()
   
   // Should still be 1 request since second was cached

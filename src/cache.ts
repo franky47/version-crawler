@@ -9,6 +9,21 @@ type CacheEntry<V> = {
 const DEFAULT_MAX_AGE_MS = 60 * 60 * 1000
 
 /**
+ * Interface for getting the current time.
+ * Can be mocked in tests for easier time-based testing.
+ */
+export interface TimeProvider {
+  now(): number
+}
+
+/**
+ * Default time provider that uses Date.now()
+ */
+export const defaultTimeProvider: TimeProvider = {
+  now: () => Date.now(),
+}
+
+/**
  * A simple in-memory LRU (Least Recently Used) cache with TTL support.
  * Uses a Map to maintain insertion order, with most recently used items at the end.
  * Entries expire after the configured max-age (default: 1 hour).
@@ -17,14 +32,20 @@ export class LRUCache<K, V> {
   private cache: Map<K, CacheEntry<V>>
   private readonly maxSize: number
   private readonly maxAgeMs: number
+  private readonly timeProvider: TimeProvider
 
-  constructor(maxSize: number, maxAgeMs: number = DEFAULT_MAX_AGE_MS) {
+  constructor(
+    maxSize: number,
+    maxAgeMs: number = DEFAULT_MAX_AGE_MS,
+    timeProvider: TimeProvider = defaultTimeProvider
+  ) {
     if (maxSize < 1) {
       throw new Error('Cache maxSize must be at least 1')
     }
     this.cache = new Map()
     this.maxSize = maxSize
     this.maxAgeMs = maxAgeMs
+    this.timeProvider = timeProvider
   }
 
   /**
@@ -39,7 +60,7 @@ export class LRUCache<K, V> {
     }
 
     // Check if entry has expired
-    if (Date.now() > entry.expiresAt) {
+    if (this.timeProvider.now() > entry.expiresAt) {
       this.cache.delete(key)
       return undefined
     }
@@ -70,19 +91,20 @@ export class LRUCache<K, V> {
 
     this.cache.set(key, {
       value,
-      expiresAt: Date.now() + this.maxAgeMs,
+      expiresAt: this.timeProvider.now() + this.maxAgeMs,
     })
   }
 
   /**
    * Check if a key exists in the cache and is not expired.
+   * Note: This does NOT update the LRU order.
    */
   has(key: K): boolean {
     const entry = this.cache.get(key)
     if (!entry) {
       return false
     }
-    if (Date.now() > entry.expiresAt) {
+    if (this.timeProvider.now() > entry.expiresAt) {
       this.cache.delete(key)
       return false
     }

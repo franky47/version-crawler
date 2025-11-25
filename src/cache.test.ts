@@ -1,5 +1,17 @@
 import { describe, expect, test, beforeEach, mock } from 'bun:test'
-import { LRUCache, generateCacheKey } from './cache'
+import { LRUCache, generateCacheKey, type TimeProvider } from './cache'
+
+/**
+ * Creates a mock time provider for testing
+ */
+function createMockTimeProvider(initialTime: number = 0): TimeProvider & { advance: (ms: number) => void; setTime: (time: number) => void } {
+  let currentTime = initialTime
+  return {
+    now: () => currentTime,
+    advance: (ms: number) => { currentTime += ms },
+    setTime: (time: number) => { currentTime = time },
+  }
+}
 
 describe('LRUCache', () => {
   let cache: LRUCache<string, number>
@@ -62,6 +74,22 @@ describe('LRUCache', () => {
     expect(cache.get('d')).toBe(4)
   })
 
+  test('should NOT update LRU order on has()', () => {
+    cache.set('a', 1)
+    cache.set('b', 2)
+    cache.set('c', 3)
+
+    // Check 'a' with has() - should NOT make it recently used
+    expect(cache.has('a')).toBe(true)
+
+    // Add new item - should still evict 'a' (still least recently used)
+    cache.set('d', 4)
+    expect(cache.get('a')).toBeUndefined()
+    expect(cache.get('b')).toBe(2)
+    expect(cache.get('c')).toBe(3)
+    expect(cache.get('d')).toBe(4)
+  })
+
   test('should update existing key without increasing size', () => {
     cache.set('a', 1)
     cache.set('b', 2)
@@ -101,68 +129,43 @@ describe('LRUCache', () => {
   })
 
   test('should expire entries after max-age', () => {
-    // Create cache with 100ms max-age for testing
-    const ttlCache = new LRUCache<string, number>(3, 100)
-    const originalNow = Date.now
+    const mockTime = createMockTimeProvider(1000)
+    const ttlCache = new LRUCache<string, number>(3, 100, mockTime)
 
-    try {
-      let currentTime = originalNow()
-      Date.now = () => currentTime
+    ttlCache.set('a', 1)
+    expect(ttlCache.get('a')).toBe(1)
 
-      ttlCache.set('a', 1)
-      expect(ttlCache.get('a')).toBe(1)
-
-      // Advance time past expiration (101ms)
-      currentTime += 101
-      expect(ttlCache.get('a')).toBeUndefined()
-    } finally {
-      // Restore Date.now
-      Date.now = originalNow
-    }
+    // Advance time past expiration (101ms)
+    mockTime.advance(101)
+    expect(ttlCache.get('a')).toBeUndefined()
   })
 
   test('should return false for has() on expired entries', () => {
-    const ttlCache = new LRUCache<string, number>(3, 100)
-    const originalNow = Date.now
+    const mockTime = createMockTimeProvider(1000)
+    const ttlCache = new LRUCache<string, number>(3, 100, mockTime)
 
-    try {
-      let currentTime = originalNow()
-      Date.now = () => currentTime
+    ttlCache.set('a', 1)
+    expect(ttlCache.has('a')).toBe(true)
 
-      ttlCache.set('a', 1)
-      expect(ttlCache.has('a')).toBe(true)
-
-      // Advance time past expiration
-      currentTime += 101
-      expect(ttlCache.has('a')).toBe(false)
-    } finally {
-      // Restore Date.now
-      Date.now = originalNow
-    }
+    // Advance time past expiration
+    mockTime.advance(101)
+    expect(ttlCache.has('a')).toBe(false)
   })
 
   test('should use default max-age of 1 hour', () => {
-    const defaultCache = new LRUCache<string, number>(3)
-    const originalNow = Date.now
+    const mockTime = createMockTimeProvider(1000)
+    const defaultCache = new LRUCache<string, number>(3, undefined, mockTime)
 
-    try {
-      let currentTime = originalNow()
-      Date.now = () => currentTime
+    defaultCache.set('a', 1)
+    expect(defaultCache.get('a')).toBe(1)
 
-      defaultCache.set('a', 1)
-      expect(defaultCache.get('a')).toBe(1)
+    // Advance time just under 1 hour (59 minutes)
+    mockTime.advance(59 * 60 * 1000)
+    expect(defaultCache.get('a')).toBe(1)
 
-      // Advance time just under 1 hour (59 minutes)
-      currentTime += 59 * 60 * 1000
-      expect(defaultCache.get('a')).toBe(1)
-
-      // Advance time past 1 hour total (2 more minutes)
-      currentTime += 2 * 60 * 1000
-      expect(defaultCache.get('a')).toBeUndefined()
-    } finally {
-      // Restore Date.now
-      Date.now = originalNow
-    }
+    // Advance time past 1 hour total (2 more minutes)
+    mockTime.advance(2 * 60 * 1000)
+    expect(defaultCache.get('a')).toBeUndefined()
   })
 })
 
@@ -173,5 +176,16 @@ describe('generateCacheKey', () => {
 
   test('should handle scoped packages', () => {
     expect(generateCacheKey('owner', 'repo', '@scope/package')).toBe('owner\0repo\0@scope/package')
+  })
+
+  test('should not have collisions between different parameter combinations', () => {
+    // Test the specific collision case mentioned in the review
+    const key1 = generateCacheKey('abc', 'def', 'ghi')
+    const key2 = generateCacheKey('ab', 'cde', 'fghi')
+    expect(key1).not.toBe(key2)
+    
+    // Verify they produce distinct keys
+    expect(key1).toBe('abc\0def\0ghi')
+    expect(key2).toBe('ab\0cde\0fghi')
   })
 })
