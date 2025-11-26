@@ -83,9 +83,9 @@ const app = new Elysia()
       usage: 'GET /:owner/:repo/:pkg',
       documentation: 'https://version-crawler.47ng.com/docs',
       examples: [
-        'https://version-crawler.47ng.com/Microsoft/vscode/typescript',
-        'https://version-crawler.47ng.com/Vercel/next.js/react',
+        'https://version-crawler.47ng.com/TheOrcDev/8bitcn-ui/nuqs',
         'https://version-crawler.47ng.com/shadcn/ui/tailwindcss',
+        'https://version-crawler.47ng.com/franky47/version-crawler/@elysiajs/openapi', // so meta
       ],
       deployment: process.env.CC_DEPLOYMENT_ID ?? 'local',
       sha1: process.env.CC_COMMIT_ID ?? null,
