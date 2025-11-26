@@ -1,5 +1,6 @@
+import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
-import packageJson from '../package.json' with { type: 'json' }
+import packageJson from '../package.json' assert { type: 'json' }
 import { generateCacheKey, responseCache } from './cache'
 import { GitHubApiError, GitHubClient } from './github-client'
 import { logger } from './logger'
@@ -16,6 +17,17 @@ const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 10
 
 const app = new Elysia()
   .use(createTelemetryPlugin())
+  .use(
+    openapi({
+      documentation: {
+        info: {
+          title: packageJson.name,
+          version: packageJson.version,
+          description: packageJson.description,
+        },
+      },
+    })
+  )
   .onError(({ code, error, set, request }) => {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const errorStack = error instanceof Error ? error.stack : undefined
@@ -61,26 +73,43 @@ const app = new Elysia()
       statusCode: 500,
     }
   })
-  .get('/', () => ({
-    service: 'Repository Dependency Version Discovery API',
-    version: packageJson.version,
-    usage: 'GET /:owner/:repo/:pkg',
-    examples: [
-      'https://version-crawler.47ng.com/Microsoft/vscode/typescript',
-      'https://version-crawler.47ng.com/Vercel/next.js/react',
-      'https://version-crawler.47ng.com/shadcn/ui/tailwindcss',
-    ],
-  }))
-  .get('/metrics', () => {
-    const rateLimitInfo = githubClient.getLastRateLimitInfo()
-    return {
-      github: {
-        rateLimit: rateLimitInfo || {
-          status: 'No API calls made yet',
-        },
+  .get(
+    '/',
+    () => ({
+      service: 'Repository Dependency Version Discovery API',
+      version: packageJson.version,
+      usage: 'GET /:owner/:repo/:pkg',
+      examples: [
+        'https://version-crawler.47ng.com/Microsoft/vscode/typescript',
+        'https://version-crawler.47ng.com/Vercel/next.js/react',
+        'https://version-crawler.47ng.com/shadcn/ui/tailwindcss',
+      ],
+    }),
+    {
+      detail: {
+        summary: 'API Root Endpoint',
+        description: 'For demos and usage information.',
       },
     }
-  })
+  )
+  .get(
+    '/metrics',
+    () => {
+      const rateLimitInfo = githubClient.getLastRateLimitInfo()
+      return {
+        github: {
+          rateLimit: rateLimitInfo || {
+            status: 'No API calls made yet',
+          },
+        },
+      }
+    },
+    {
+      detail: {
+        hide: true,
+      },
+    }
+  )
   .get('/favicon.ico', ({ set }) => {
     set.headers['Content-Type'] = 'image/svg+xml'
     return FAVICON_SVG
@@ -130,6 +159,11 @@ const app = new Elysia()
     },
     {
       params: pathParamsSchema,
+      detail: {
+        summary: 'Get package versions in a repository',
+        description:
+          'Retrieve the sources of a specified package version used in a GitHub repository.',
+      },
     }
   )
 
