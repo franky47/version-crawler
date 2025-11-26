@@ -77,8 +77,9 @@ const app = new Elysia()
   .get(
     '/',
     () => ({
-      service: 'Repository Dependency Version Discovery API',
+      service: packageJson.name,
       version: packageJson.version,
+      description: packageJson.description,
       usage: 'GET /:owner/:repo/:pkg',
       documentation: 'https://version-crawler.47ng.com/docs',
       examples: [
@@ -86,6 +87,8 @@ const app = new Elysia()
         'https://version-crawler.47ng.com/Vercel/next.js/react',
         'https://version-crawler.47ng.com/shadcn/ui/tailwindcss',
       ],
+      deployment: process.env.CC_DEPLOYMENT_ID ?? 'local',
+      sha1: process.env.CC_COMMIT_ID ?? null,
     }),
     {
       detail: {
