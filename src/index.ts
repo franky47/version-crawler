@@ -120,9 +120,10 @@ const app = new Elysia()
     return FAVICON_SVG
   })
   .get(
-    '/:owner/:repo/:pkg',
+    '/:owner/:repo/*',
     async ({ params, set }) => {
-      const { owner, repo, pkg } = params
+      const { owner, repo } = params
+      const pkg = params['*']
 
       logger.info({ owner, repo, pkg }, 'Processing request')
 

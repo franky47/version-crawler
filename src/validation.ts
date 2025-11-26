@@ -1,5 +1,4 @@
 import { type } from 'arktype'
-import { t } from 'elysia'
 
 // ArkType morph to parse string header values to numbers
 const parseIntMorph = type('string').pipe.try((s) => {
@@ -24,42 +23,22 @@ export type RateLimitInfo = typeof rateLimitHeaderSchema.infer
 
 // ArkType schemas for API validation
 // GitHub username rules: alphanumeric + hyphens
-export const ownerSchemaArkType = type('/^[a-zA-Z0-9-]+$/')
+export const ownerSchema =
+  type('/^[a-zA-Z0-9-_]+$/').describe('GitHub owner name')
 
 // GitHub repo name rules: alphanumeric + hyphens + periods + underscores
-export const repoSchemaArkType = type('/^[a-zA-Z0-9-._]+$/')
+export const repoSchema = type('/^[a-zA-Z0-9-._]+$/').describe(
+  'GitHub repository name'
+)
 
 // NPM package name rules (supports scoped packages)
 // Length between 1 and 214 characters
-export const packageSchemaArkType = type('string>=1').narrow(
-  (s) => s.length <= 214
-)
+export const packageSchema = type('/^(@[a-zA-Z0-9-]+\\/)?[a-zA-Z0-9-]+$/')
+  .narrow((value) => value.length <= 214)
+  .describe('NPM package name')
 
-// Elysia validation schemas (for runtime validation in routes)
-// GitHub username rules: alphanumeric + hyphens
-const ownerSchema = t.String({
-  pattern: '^[a-zA-Z0-9-]+$',
-  error:
-    'Invalid owner name. Must contain only alphanumeric characters and hyphens.',
-})
-
-// GitHub repo name rules: alphanumeric + hyphens + periods + underscores
-const repoSchema = t.String({
-  pattern: '^[a-zA-Z0-9-._]+$',
-  error:
-    'Invalid repository name. Must contain only alphanumeric characters, hyphens, periods, and underscores.',
-})
-
-// NPM package name rules (supports scoped packages)
-// Simplified: allows alphanumeric, hyphens, underscores, dots, and scoped packages
-const packageSchema = t.String({
-  minLength: 1,
-  maxLength: 214,
-  error: 'Invalid package name.',
-})
-
-export const pathParamsSchema = t.Object({
+export const pathParamsSchema = type({
   owner: ownerSchema,
   repo: repoSchema,
-  pkg: packageSchema,
+  '*': packageSchema,
 })
