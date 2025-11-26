@@ -215,3 +215,70 @@ test('GET /:owner/:repo/:pkg returns cached response on second request', async (
   // Response data should be identical
   expect(data1).toEqual(data2)
 })
+
+test('GET /:owner/:repo/@scope/package returns dependency information for scoped package', async () => {
+  const response = await app.handle(
+    new Request('http://localhost:3000/test-owner/test-repo/@tanstack/react-query')
+  )
+
+  expect(response.status).toBe(200)
+  const data = await response.json()
+
+  expect(data).toHaveProperty('repo', 'test-owner/test-repo')
+  expect(data).toHaveProperty('pkg', '@tanstack/react-query')
+  expect(data).toHaveProperty('sources')
+  expect(Array.isArray(data.sources)).toBe(true)
+})
+
+test('GET /:owner/:repo/@scope/package with invalid scope returns 400', async () => {
+  // Scope without @
+  const response1 = await app.handle(
+    new Request('http://localhost:3000/test-owner/test-repo/tanstack/react-query')
+  )
+  expect(response1.status).toBe(400)
+
+  // Scope with invalid characters
+  const response2 = await app.handle(
+    new Request('http://localhost:3000/test-owner/test-repo/@tan$tack/react-query')
+  )
+  expect(response2.status).toBe(400)
+})
+
+test('GET /:owner/:repo/@scope/package caches correctly', async () => {
+  let requestCount = 0
+  server.use(
+    http.get(
+      'https://api.github.com/repos/:owner/:repo/git/trees/:sha',
+      () => {
+        requestCount++
+        return HttpResponse.json(mockTree, {
+          headers: {
+            'X-RateLimit-Limit': '5000',
+            'X-RateLimit-Remaining': '4999',
+            'X-RateLimit-Reset': '1732492800',
+            'X-RateLimit-Used': '1',
+            'X-RateLimit-Resource': 'core',
+          },
+        })
+      }
+    )
+  )
+
+  // First request - should hit GitHub API
+  const response1 = await app.handle(
+    new Request('http://localhost:3000/scoped-owner/scoped-repo/@swc/core')
+  )
+  expect(response1.status).toBe(200)
+  expect(response1.headers.get('X-Cache')).toBe('MISS')
+  expect(requestCount).toBe(1)
+
+  // Second request - should return cached response
+  const response2 = await app.handle(
+    new Request('http://localhost:3000/scoped-owner/scoped-repo/@swc/core')
+  )
+  expect(response2.status).toBe(200)
+  expect(response2.headers.get('X-Cache')).toBe('HIT')
+  
+  // Should still be 1 request since second was cached
+  expect(requestCount).toBe(1)
+})

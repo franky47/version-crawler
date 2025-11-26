@@ -29,10 +29,12 @@ export const ownerSchemaArkType = type('/^[a-zA-Z0-9-]+$/')
 // GitHub repo name rules: alphanumeric + hyphens + periods + underscores
 export const repoSchemaArkType = type('/^[a-zA-Z0-9-._]+$/')
 
-// NPM package name rules (supports scoped packages)
-// Length between 1 and 214 characters
-export const packageSchemaArkType = type('string>=1').narrow(
-  (s) => s.length <= 214
+// NPM package name rules (supports both scoped and unscoped packages)
+// - Unscoped: package-name (alphanumeric, hyphens, underscores, dots)
+// - Scoped: @scope/package-name
+export const packageSchemaArkType = type('/^(@[a-zA-Z0-9_-]+\\/)?[a-zA-Z0-9_.-]+$/').narrow(
+  (s: string) => s.length >= 1 && s.length <= 214,
+  'Package name must be between 1 and 214 characters'
 )
 
 // Elysia validation schemas (for runtime validation in routes)
@@ -50,16 +52,29 @@ const repoSchema = t.String({
     'Invalid repository name. Must contain only alphanumeric characters, hyphens, periods, and underscores.',
 })
 
-// NPM package name rules (supports scoped packages)
-// Simplified: allows alphanumeric, hyphens, underscores, dots, and scoped packages
+// NPM package name rules (supports both scoped and unscoped packages)
+// - Unscoped: package-name (alphanumeric, hyphens, underscores, dots)
+// - Scoped: @scope/package-name
+// See: https://docs.npmjs.com/cli/v9/configuring-npm/package-json#name
 const packageSchema = t.String({
+  pattern: '^(@[a-zA-Z0-9_-]+/)?[a-zA-Z0-9_.-]+$',
   minLength: 1,
   maxLength: 214,
-  error: 'Invalid package name.',
+  error: 'Invalid package name. Must be alphanumeric with optional scope (@scope/package).',
 })
 
 export const pathParamsSchema = t.Object({
   owner: ownerSchema,
   repo: repoSchema,
   pkg: packageSchema,
+})
+
+// Wildcard route params for /:owner/:repo/*
+export const wildcardPathParamsSchema = t.Object({
+  owner: ownerSchema,
+  repo: repoSchema,
+  '*': t.String({
+    minLength: 1,
+    error: 'Package path is required',
+  }),
 })
