@@ -19,6 +19,7 @@ const app = new Elysia()
   .use(createTelemetryPlugin())
   .use(
     openapi({
+      path: '/docs',
       documentation: {
         info: {
           title: packageJson.name,
@@ -79,7 +80,7 @@ const app = new Elysia()
       service: 'Repository Dependency Version Discovery API',
       version: packageJson.version,
       usage: 'GET /:owner/:repo/:pkg',
-      documentation: 'https://version-crawler.47ng.com/openapi',
+      documentation: 'https://version-crawler.47ng.com/docs',
       examples: [
         'https://version-crawler.47ng.com/Microsoft/vscode/typescript',
         'https://version-crawler.47ng.com/Vercel/next.js/react',
