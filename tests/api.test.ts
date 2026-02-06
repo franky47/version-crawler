@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, expect, test } from 'bun:test'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { responseCache } from '../src/cache'
-import app from '../src/index'
+import { app } from '../src/index'
 
 // Mock GitHub API responses
 const mockTree = {
@@ -29,7 +29,7 @@ const mockPackageJson = JSON.stringify(
     },
   },
   null,
-  2
+  2,
 )
 
 // Set up MSW server
@@ -47,13 +47,13 @@ const server = setupServer(
           'X-RateLimit-Resource': 'core',
         },
       })
-    }
+    },
   ),
   http.get('https://raw.githubusercontent.com/:owner/:repo/:sha/:path', () => {
     return new HttpResponse(mockPackageJson, {
       headers: { 'Content-Type': 'application/json' },
     })
-  })
+  }),
 )
 
 beforeAll(() => server.listen())
@@ -77,7 +77,7 @@ test('GET / returns service info', async () => {
 
 test('GET /:owner/:repo/:pkg returns dependency information', async () => {
   const response = await app.handle(
-    new Request('http://localhost:3000/test-owner/test-repo/react')
+    new Request('http://localhost:3000/test-owner/test-repo/react'),
   )
 
   expect(response.status).toBe(200)
@@ -91,7 +91,7 @@ test('GET /:owner/:repo/:pkg returns dependency information', async () => {
 
 test('GET /:owner/:repo/:pkg with invalid owner returns 400', async () => {
   const response = await app.handle(
-    new Request('http://localhost:3000/invalid@owner/test-repo/react')
+    new Request('http://localhost:3000/invalid@owner/test-repo/react'),
   )
 
   expect(response.status).toBe(400)
@@ -101,11 +101,11 @@ test('GET /:owner/:repo/:pkg with 404 from GitHub returns 404', async () => {
   server.use(
     http.get('https://api.github.com/repos/:owner/:repo/git/trees/:sha', () => {
       return new HttpResponse(null, { status: 404 })
-    })
+    }),
   )
 
   const response = await app.handle(
-    new Request('http://localhost:3000/test-owner/nonexistent/react')
+    new Request('http://localhost:3000/test-owner/nonexistent/react'),
   )
 
   expect(response.status).toBe(404)
@@ -124,11 +124,11 @@ test('GET /:owner/:repo/:pkg with rate limit returns 502', async () => {
           'X-RateLimit-Resource': 'core',
         },
       })
-    })
+    }),
   )
 
   const response = await app.handle(
-    new Request('http://localhost:3000/test-owner/test-repo/react')
+    new Request('http://localhost:3000/test-owner/test-repo/react'),
   )
 
   expect(response.status).toBe(502)
@@ -137,12 +137,12 @@ test('GET /:owner/:repo/:pkg with rate limit returns 502', async () => {
 test('GET /metrics returns GitHub rate limit info', async () => {
   // First make a request to populate rate limit info
   await app.handle(
-    new Request('http://localhost:3000/test-owner/test-repo/react')
+    new Request('http://localhost:3000/test-owner/test-repo/react'),
   )
 
   // Then check metrics endpoint
   const response = await app.handle(
-    new Request('http://localhost:3000/metrics')
+    new Request('http://localhost:3000/metrics'),
   )
   expect(response.status).toBe(200)
 
@@ -162,7 +162,7 @@ test('GET /metrics returns GitHub rate limit info', async () => {
 
 test('GET /favicon.ico returns SVG with robot emoji', async () => {
   const response = await app.handle(
-    new Request('http://localhost:3000/favicon.ico')
+    new Request('http://localhost:3000/favicon.ico'),
   )
   expect(response.status).toBe(200)
   expect(response.headers.get('Content-Type')).toBe('image/svg+xml')
@@ -186,12 +186,12 @@ test('GET /:owner/:repo/:pkg returns cached response on second request', async (
           'X-RateLimit-Resource': 'core',
         },
       })
-    })
+    }),
   )
 
   // First request - should hit GitHub API
   const response1 = await app.handle(
-    new Request('http://localhost:3000/cache-owner/cache-repo/lodash')
+    new Request('http://localhost:3000/cache-owner/cache-repo/lodash'),
   )
   expect(response1.status).toBe(200)
   expect(response1.headers.get('X-Cache')).toBe('MISS')
@@ -200,7 +200,7 @@ test('GET /:owner/:repo/:pkg returns cached response on second request', async (
 
   // Second request - should return cached response
   const response2 = await app.handle(
-    new Request('http://localhost:3000/cache-owner/cache-repo/lodash')
+    new Request('http://localhost:3000/cache-owner/cache-repo/lodash'),
   )
   expect(response2.status).toBe(200)
   expect(response2.headers.get('X-Cache')).toBe('HIT')
@@ -227,12 +227,12 @@ test('GET /:owner/:repo/@scope/package returns dependency information for scoped
           'X-RateLimit-Resource': 'core',
         },
       })
-    })
+    }),
   )
   const response = await app.handle(
     new Request(
-      'http://localhost:3000/test-owner/test-repo/@tanstack/react-query'
-    )
+      'http://localhost:3000/test-owner/test-repo/@tanstack/react-query',
+    ),
   )
 
   expect(response.status).toBe(200)
@@ -258,13 +258,13 @@ test('GET /:owner/:repo/@scope/package with invalid scope returns 400', async ()
           'X-RateLimit-Resource': 'core',
         },
       })
-    })
+    }),
   )
   // Scope without @
   const response1 = await app.handle(
     new Request(
-      'http://localhost:3000/test-owner/test-repo/tanstack/react-query'
-    )
+      'http://localhost:3000/test-owner/test-repo/tanstack/react-query',
+    ),
   )
   expect(response1.status).toBe(400)
   expect(requestCount).toBe(0)
@@ -272,8 +272,8 @@ test('GET /:owner/:repo/@scope/package with invalid scope returns 400', async ()
   // Scope with invalid characters
   const response2 = await app.handle(
     new Request(
-      'http://localhost:3000/test-owner/test-repo/@tan$tack/react-query'
-    )
+      'http://localhost:3000/test-owner/test-repo/@tan$tack/react-query',
+    ),
   )
   expect(response2.status).toBe(400)
   expect(requestCount).toBe(0)
@@ -293,12 +293,12 @@ test('GET /:owner/:repo/@scope/package caches correctly', async () => {
           'X-RateLimit-Resource': 'core',
         },
       })
-    })
+    }),
   )
 
   // First request - should hit GitHub API
   const response1 = await app.handle(
-    new Request('http://localhost:3000/scoped-owner/scoped-repo/@swc/core')
+    new Request('http://localhost:3000/scoped-owner/scoped-repo/@swc/core'),
   )
   expect(response1.status).toBe(200)
   expect(response1.headers.get('X-Cache')).toBe('MISS')
@@ -306,7 +306,7 @@ test('GET /:owner/:repo/@scope/package caches correctly', async () => {
 
   // Second request - should return cached response
   const response2 = await app.handle(
-    new Request('http://localhost:3000/scoped-owner/scoped-repo/@swc/core')
+    new Request('http://localhost:3000/scoped-owner/scoped-repo/@swc/core'),
   )
   expect(response2.status).toBe(200)
   expect(response2.headers.get('X-Cache')).toBe('HIT')

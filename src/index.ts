@@ -15,7 +15,7 @@ const manifestParser = new ManifestParser()
 
 const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🤖</text></svg>`
 
-const app = new Elysia()
+export const app = new Elysia()
   .use(createTelemetryPlugin())
   .use(
     openapi({
@@ -27,7 +27,7 @@ const app = new Elysia()
           description: packageJson.description,
         },
       },
-    })
+    }),
   )
   .onError(({ code, error, set, request }) => {
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -35,7 +35,7 @@ const app = new Elysia()
 
     logger.error(
       { code, error: errorMessage, stack: errorStack },
-      'Request error'
+      'Request error',
     )
 
     if (error instanceof GitHubApiError) {
@@ -95,7 +95,7 @@ const app = new Elysia()
         summary: 'API Root Endpoint',
         description: 'For demos and usage information.',
       },
-    }
+    },
   )
   .get(
     '/metrics',
@@ -113,7 +113,7 @@ const app = new Elysia()
       detail: {
         hide: true,
       },
-    }
+    },
   )
   .get('/favicon.ico', ({ set }) => {
     set.headers['Content-Type'] = 'image/svg+xml'
@@ -158,7 +158,7 @@ const app = new Elysia()
 
       logger.info(
         { owner, repo, pkg, sourceCount: sources.length },
-        'Request completed'
+        'Request completed',
       )
 
       return response
@@ -170,7 +170,8 @@ const app = new Elysia()
         description:
           'Retrieve the sources of a specified package version used in a GitHub repository.',
       },
-    }
+    },
   )
-
-export default app
+  .listen(process.env.PORT ? parseInt(process.env.PORT) : 3000, (info) => {
+    logger.info(`Server is running on ${info.hostname}:${info.port}`)
+  })
